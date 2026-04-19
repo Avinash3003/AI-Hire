@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../../utils/api';
 import toast from 'react-hot-toast';
-import { Camera, Mic, Play, CheckCircle2, AlertTriangle, Code2, Video, AlertOctagon, Terminal, Clock, XCircle, ArrowRight, Save, Headphones, Settings } from 'lucide-react';
+import { Camera, Mic, Play, CheckCircle2, AlertTriangle, Code2, Video, AlertOctagon, Terminal, Clock, XCircle, ArrowRight, Save, Headphones, Settings, Lock } from 'lucide-react';
 import Editor from '@monaco-editor/react';
 
 // ─── Countdown Timer Hook ─────────────────────────────────────────────────────

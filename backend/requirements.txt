@@ -3,6 +3,13 @@ uvicorn
 supabase
 python-dotenv
 passlib[bcrypt]
+bcrypt==3.2.2
 pyjwt
 pydantic[email]
 pydantic-settings
+PyMuPDF
+scikit-learn
+google-genai
+rapidfuzz
+requests
+python-multipart

@@ -1,12 +1,24 @@
-import React, { useContext } from 'react';
+import React, { useContext, useState, useEffect } from 'react';
 import { Outlet, useNavigate, Link } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthContext } from '../context/AuthContext';
 import { Briefcase, LogOut, User, Menu } from 'lucide-react';
+import api from '../utils/api';
 
 const StudentLayout = () => {
   const { user, logout } = useContext(AuthContext);
   const navigate = useNavigate();
+  const [pendingCount, setPendingCount] = useState(0);
+
+  useEffect(() => {
+    if (user) {
+        api.get('/applications/my').then(res => {
+            const apps = res.data;
+            const pending = apps.filter(a => a.assessment_links && a.assessment_links.length > 0 && a.assessment_links[0].status === 'pending').length;
+            setPendingCount(pending);
+        }).catch(err => {});
+    }
+  }, [user]);
 
   const handleLogout = () => {
     logout();
@@ -31,7 +43,12 @@ const StudentLayout = () => {
             
             {user ? (
                <>
-                 <Link to="/student-applications" className="text-sm font-semibold text-slate-600 hover:text-blue-600 transition-colors">My Applications</Link>
+                 <Link to="/student-applications" className="text-sm font-semibold text-slate-600 hover:text-blue-600 transition-colors flex items-center gap-2">
+                    My Applications
+                    {pendingCount > 0 && (
+                        <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">{pendingCount}</span>
+                    )}
+                 </Link>
                  <div className="h-6 w-px bg-slate-200"></div>
                  <div className="flex items-center gap-3">
                     <span className="font-semibold text-sm text-slate-800">{user.name}</span>

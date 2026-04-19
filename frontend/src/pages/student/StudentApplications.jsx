@@ -65,14 +65,13 @@ const StudentApplications = () => {
               
               {/* Assessment Link Render Block */}
               {app.assessment_links && app.assessment_links.length > 0 && app.assessment_links[0].status === 'pending' && (
-                 <div className="mt-6 p-4 bg-green-500/10 border border-green-500/30 rounded-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                 <div className="mt-4 pt-4 border-t border-white/10 flex items-center justify-between gap-4">
                     <div>
-                      <h4 className="font-bold text-green-400 mb-1">🎉 Congratulations on your shortlisting!</h4>
-                      <p className="text-sm text-gray-400 max-w-sm">You have been invited to the next rounds. This secure assessment involves proctoring constraints. Ensure you are in a quiet environment.</p>
-                      <p className="text-xs font-mono text-red-400 mt-2">Expires: {new Date(app.assessment_links[0].expires_at).toLocaleString()}</p>
+                      <p className="text-sm font-bold text-green-400">Action Required: Complete Assessment</p>
+                      <p className="text-xs text-gray-400">Due: {new Date(app.assessment_links[0].expires_at).toLocaleDateString()}</p>
                     </div>
-                    <a href={`/assessment/${app.assessment_links[0].token}`} target="_blank" rel="noreferrer" className="shrink-0 px-6 py-2.5 bg-green-600 hover:bg-green-500 text-white font-bold rounded-lg transition-colors shadow-lg shadow-green-600/20 whitespace-nowrap">
-                       Start Secure Assessment
+                    <a href={`/assessment/${app.assessment_links[0].token}`} target="_blank" rel="noreferrer" className="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold rounded-lg transition-colors shadow-lg">
+                       Start Exam
                     </a>
                  </div>
               )}

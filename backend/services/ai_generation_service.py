@@ -21,7 +21,7 @@ class AIGenerationService:
         client = genai.Client(api_key=api_key)
         
         config = {
-            "max_output_tokens": 4096, # Higher limit for large sets of questions
+            "max_output_tokens": 8192, # Higher limit for large sets of questions
             "temperature": 0.7
         }
         
@@ -48,19 +48,22 @@ class AIGenerationService:
         """
         Generates high-quality, non-trivial DSA problems with logical twists.
         """
-        topics_str = ", ".join(topics)
         dist_str = ", ".join([f"{count} {diff}" for diff, count in difficulty_distribution.items() if count > 0])
         
         prompt = f"""
         Generate EXACTLY {total_questions} ADVANCED Data Structures & Algorithms problems.
         Distribution: {dist_str}.
-        Topics: {topics_str}.
+        
+        CRITICAL RULE:
+        Generate ONLY pure Data Structures and Algorithms problems.
+        DO NOT generate domain-specific or real-world system-based questions (e.g., no Azure, DevOps, Logs, MLOps, or Cloud).
+        Focus ONLY on abstract problem solving like LeetCode / HackerRank.
         
         QUALITY REQUIREMENTS:
-        - Avoid standard "LeetCode Easy" or extremely common problems (e.g., Two Sum, Contains Duplicate, Valid Palindrome).
+        - Avoid very basic problems (e.g., standard Two Sum, Contains Duplicate).
         - Introduce logical twists, multi-step reasoning, or specific edge-case constraints.
-        - Problems should be "Interview-Level" reflecting real-world complexity.
-        - Topic focus: Arrays, Strings, HashMap, Two Pointers, Sliding Window, Sorting, Stack/Queue, Basic DP.
+        - Topic focus: Arrays, Strings, HashMap, Two Pointers, Sliding Window, Sorting, Stack/Queue, Basic DP, Greedy.
+        - Problems should be "Interview-Level" reflecting real-world complexity but purely algorithmic.
 
         OUTPUT FORMAT: Strict JSON only.
         {{
@@ -82,13 +85,31 @@ class AIGenerationService:
         - Function signature MUST be 'solve' with Python 3 type hints.
         """
 
-        try:
-            raw = AIGenerationService._generate(prompt)
-            data = json.loads(raw)
-            return data.get("coding_questions", [])
-        except Exception as e:
-            print(f"Error generating coding questions: {e}")
-            raise ValueError(f"Failed to generate coding questions: {str(e)}")
+        max_retries = 3
+        last_error = None
+        for attempt in range(max_retries):
+            try:
+                raw = AIGenerationService._generate(prompt)
+                # Clean markdown formatting if present
+                raw = raw.strip()
+                if raw.startswith("```json"):
+                    raw = raw[7:]
+                elif raw.startswith("```"):
+                    raw = raw[3:]
+                if raw.endswith("```"):
+                    raw = raw[:-3]
+                raw = raw.strip()
+                
+                data = json.loads(raw)
+                return data.get("coding_questions", [])
+            except json.JSONDecodeError as e:
+                print(f"JSON Parse Error on attempt {attempt + 1}: {e}\nRetrying...")
+                last_error = e
+            except Exception as e:
+                print(f"Error generating coding questions: {e}\nRaw LLM output: {raw if 'raw' in locals() else 'None'}")
+                raise ValueError(f"Failed to generate coding questions: {str(e)}")
+                
+        raise ValueError(f"Failed to generate valid JSON after {max_retries} attempts. Last error: {str(last_error)}")
 
     @staticmethod
     def generate_interview_questions(total_questions: int, difficulty_distribution: Dict[str, int], topics: List[str]) -> List[Dict[str, Any]]:
@@ -123,10 +144,28 @@ class AIGenerationService:
         - NO paragraph answers, NO conversational text.
         """
 
-        try:
-            raw = AIGenerationService._generate(prompt)
-            data = json.loads(raw)
-            return data.get("interview_questions", [])
-        except Exception as e:
-            print(f"Error generating interview questions: {e}")
-            raise ValueError(f"Failed to generate interview questions: {str(e)}")
+        max_retries = 3
+        last_error = None
+        for attempt in range(max_retries):
+            try:
+                raw = AIGenerationService._generate(prompt)
+                # Clean markdown formatting if present
+                raw = raw.strip()
+                if raw.startswith("```json"):
+                    raw = raw[7:]
+                elif raw.startswith("```"):
+                    raw = raw[3:]
+                if raw.endswith("```"):
+                    raw = raw[:-3]
+                raw = raw.strip()
+
+                data = json.loads(raw)
+                return data.get("interview_questions", [])
+            except json.JSONDecodeError as e:
+                print(f"JSON Parse Error on attempt {attempt + 1}: {e}\nRetrying...")
+                last_error = e
+            except Exception as e:
+                print(f"Error generating interview questions: {e}\nRaw LLM output: {raw if 'raw' in locals() else 'None'}")
+                raise ValueError(f"Failed to generate interview questions: {str(e)}")
+                
+        raise ValueError(f"Failed to generate valid JSON after {max_retries} attempts. Last error: {str(last_error)}")
