@@ -112,8 +112,9 @@ const AssessmentEngine = () => {
   const [questionIndex, setQuestionIndex] = useState(0);
   
   // Coding state
-  const [language, setLanguage] = useState('python');
-  const [code, setCode] = useState('');
+  const [codingQuestions, setCodingQuestions] = useState([]);
+  const [codingIndex, setCodingIndex] = useState(0);
+  const [codes, setCodes] = useState({}); // { q_id: code_string }
   const [consoleOutput, setConsoleOutput] = useState('');
   
   // Proctoring
@@ -146,25 +147,34 @@ const AssessmentEngine = () => {
   const forceSubmitAll = useCallback(async () => {
     try {
       await api.post(`/assessments/${token}/interview`, { transcript: 'FORCED SUBMIT: ' + transcript });
-      await api.post(`/assessments/${token}/coding`, { code: '// FORCED SUBMIT\n' + code });
+      // Submit everything in codes object
+      for(const qid in codes) {
+         await api.post(`/assessments/${token}/coding`, { code: codes[qid], question_id: qid });
+      }
     } catch (e) {}
     setStage('complete');
     setCameraActive(false);
     thinkTimer.stop();
     speakTimer.stop();
     codingTimer.stop();
-  }, [token, transcript, code, thinkTimer, speakTimer, codingTimer]);
+  }, [token, transcript, codes, thinkTimer, speakTimer, codingTimer]);
 
   useEffect(() => {
     const verifyToken = async () => {
       try {
         const res = await api.get(`/assessments/verify/${token}`);
         setData(res.data);
-        if (res.data.coding_question) {
-          setCode(res.data.coding_question.function_signature + '\n    # write logic here\n    pass\n');
-        } else {
-          setCode('def solve(input):\n    # write your solution here\n    pass\n');
-        }
+        
+        const qs = res.data.coding_questions || [];
+        setCodingQuestions(qs);
+        
+        // Initialize codes for all questions
+        const initialCodes = {};
+        qs.forEach(q => {
+          initialCodes[q.id] = q.function_signature + '\n    # write logic here\n    pass\n';
+        });
+        setCodes(initialCodes);
+        
       } catch (err) {
         setError(err.response?.data?.detail || 'Invalid or expired assessment link.');
       } finally {
@@ -252,7 +262,11 @@ const AssessmentEngine = () => {
         const conf = data?.applications?.jobs?.config_json?.rounds || {};
         
         // Save current question
-        await api.post(`/assessments/${token}/interview`, { transcript });
+        const currentQ = data?.interview_questions?.[questionIndex];
+        await api.post(`/assessments/${token}/interview`, { 
+            transcript, 
+            question_id: currentQ?.id 
+        });
         setTranscript('');
         speakTimer.stop();
         
@@ -297,16 +311,32 @@ const AssessmentEngine = () => {
         else setStage('complete');
       }
       else if (stage === 'coding') {
-        codingTimer.stop();
-        await api.post(`/assessments/${token}/coding`, { code });
-        toast.success('Coding Assessment Submitted.');
-        setStage('complete');
+          const currentQ = codingQuestions[codingIndex];
+          await api.post(`/assessments/${token}/coding`, { 
+              code: codes[currentQ.id], 
+              question_id: currentQ.id 
+          });
+          
+          if (codingIndex + 1 < codingQuestions.length) {
+              setCodingIndex(prev => prev + 1);
+              toast.success('Solution submitted.');
+          } else {
+              codingTimer.stop();
+              toast.success('Coding Assessment Submitted.');
+              setStage('complete');
+          }
       }
     } catch {
       toast.error('Submission failed.');
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const updateCurrentCode = (newVal) => {
+      const currentQ = codingQuestions[codingIndex];
+      if (!currentQ) return;
+      setCodes(prev => ({ ...prev, [currentQ.id]: newVal }));
   };
 
   const runMockCode = () => setConsoleOutput('> Executing...\n> Passing Test Case 1...\n> Passing Test Case 2...\n> Output: True\n> Execution completed in 12ms.');
@@ -502,14 +532,10 @@ const AssessmentEngine = () => {
 
                 <div className="flex items-center gap-4">
                     <div className="flex items-center bg-slate-950 border border-white/5 rounded-2xl px-2 py-1">
-                        {['python', 'javascript'].map(l => (
-                            <button key={l} onClick={() => setLanguage(l)} className={`px-4 py-1.5 rounded-xl text-[10px] font-bold uppercase transition-all ${language === l ? 'bg-purple-600/20 text-purple-400 border border-purple-500/30 shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}>
-                                {l}
-                            </button>
-                        ))}
+                       <span className="px-4 py-1.5 rounded-xl text-[10px] font-bold uppercase bg-purple-600/20 text-purple-400 border border-purple-500/30">python 3</span>
                     </div>
                     <button disabled={submitting} onClick={handleNextStage} className="px-6 py-2.5 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-2xl text-xs uppercase tracking-widest shadow-xl shadow-purple-900/20 border border-purple-400/30 flex items-center gap-2 transition-all active:scale-95">
-                        <Save size={14}/> Submit Final Round
+                        <Save size={14}/> {codingIndex + 1 < codingQuestions.length ? 'Submit & Next' : 'Final Submit'}
                     </button>
                 </div>
             </div>
@@ -517,26 +543,34 @@ const AssessmentEngine = () => {
             <div className="flex-1 flex overflow-hidden">
               <div className="w-[35%] bg-slate-900/50 border-r border-white/5 p-8 overflow-y-auto flex flex-col custom-scrollbar">
                 <div className="space-y-6">
+                <div className="space-y-6">
                     <div>
-                        <span className="text-[10px] font-bold text-purple-400 uppercase tracking-widest mb-1.5 block">Active Challenge</span>
-                        <h3 className="text-2xl font-extrabold text-white leading-tight">{data.coding_question?.title || 'System Architect Problem'}</h3>
+                        <span className="text-[10px] font-bold text-purple-400 uppercase tracking-widest mb-1.5 block">Challenge {codingIndex + 1} of {codingQuestions.length}</span>
+                        <h3 className="text-2xl font-extrabold text-white leading-tight">{codingQuestions[codingIndex]?.title || 'System Architect Problem'}</h3>
                     </div>
-                    <div className="prose prose-invert prose-sm text-slate-400 leading-relaxed bg-slate-950/40 p-5 rounded-2xl border border-white/5 shadow-inner">
-                        <p>{data.coding_question?.description || 'Write an efficient solution to solve this specialized logical constraint.'}</p>
+                    {codingQuestions.length > 1 && (
+                      <div className="flex gap-2">
+                        {codingQuestions.map((_, idx) => (
+                           <div key={idx} className={`h-1.5 flex-1 rounded-full transition-all ${idx === codingIndex ? 'bg-purple-500 shadow-[0_0_10px_rgba(168,85,247,0.5)]' : idx < codingIndex ? 'bg-green-500' : 'bg-slate-800'}`} />
+                        ))}
+                      </div>
+                    )}
+                    <div className="prose prose-invert prose-sm text-slate-400 leading-relaxed bg-slate-950/40 p-5 rounded-2xl border border-white/5 shadow-inner transition-all">
+                        <p>{codingQuestions[codingIndex]?.description || 'Write an efficient solution to solve this specialized logical constraint.'}</p>
                     </div>
 
                     <div className="space-y-3">
                         <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2"><ArrowRight size={10}/> TestCase Example</span>
                         <div className="bg-[#0f1117] p-5 rounded-2xl border border-white/5 font-mono text-xs space-y-3 shadow-2xl">
-                            {data.coding_question?.public_testcases?.[0] ? (
+                            {codingQuestions[codingIndex]?.public_testcases?.[0] ? (
                             <>
                                 <div className="space-y-1">
                                     <p className="text-slate-500 uppercase text-[9px] font-bold">Input</p>
-                                    <p className="text-blue-300 bg-blue-500/5 px-2 py-1 rounded inline-block">{JSON.stringify(data.coding_question.public_testcases[0].input)}</p>
+                                    <p className="text-blue-300 bg-blue-500/5 px-2 py-1 rounded inline-block">{JSON.stringify(codingQuestions[codingIndex].public_testcases[0].input)}</p>
                                 </div>
                                 <div className="space-y-1">
                                     <p className="text-slate-500 uppercase text-[9px] font-bold">Expectation</p>
-                                    <p className="text-green-300 bg-green-500/5 px-2 py-1 rounded inline-block">{JSON.stringify(data.coding_question.public_testcases[0].output)}</p>
+                                    <p className="text-green-300 bg-green-500/5 px-2 py-1 rounded inline-block">{JSON.stringify(codingQuestions[codingIndex].public_testcases[0].output)}</p>
                                 </div>
                             </>
                             ) : (
@@ -544,6 +578,7 @@ const AssessmentEngine = () => {
                             )}
                         </div>
                     </div>
+                </div>
                 </div>
 
                 <div className="mt-auto pt-10">
@@ -561,9 +596,9 @@ const AssessmentEngine = () => {
                 <Editor
                   height="100%"
                   theme="vs-dark"
-                  language={language}
-                  value={code}
-                  onChange={setCode}
+                  language="python"
+                  value={codes[codingQuestions[codingIndex]?.id] || ''}
+                  onChange={updateCurrentCode}
                   options={{ 
                     minimap: { enabled: false }, 
                     fontSize: 15, 

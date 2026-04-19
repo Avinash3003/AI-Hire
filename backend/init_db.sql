@@ -49,6 +49,7 @@ create table assessment_links (
 create table coding_results (
     id uuid primary key default gen_random_uuid(),
     assessment_link_id uuid references assessment_links(id) not null,
+    question_id uuid references coding_questions(id),
     code_submitted text,
     test_cases_passed integer default 0,
     total_test_cases integer default 0,
@@ -59,6 +60,7 @@ create table coding_results (
 create table interview_results (
     id uuid primary key default gen_random_uuid(),
     assessment_link_id uuid references assessment_links(id) not null,
+    question_id uuid references interview_questions(id),
     transcript text,
     communication_score integer default 0,
     technical_score integer default 0,

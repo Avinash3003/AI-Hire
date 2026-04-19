@@ -69,10 +69,11 @@ def save_config(payload: SaveConfigRequest, current_user: UserResponse = Depends
     for cq in payload.coding_questions:
         q_data = {
             "job_id": payload.job_id,
-            "title": cq["title"],
-            "description": cq["description"],
-            "function_signature": cq["function_signature"],
-            "difficulty": cq["difficulty"],
+            "title": cq.get("title", "Untitled Problem"),
+            "description": cq.get("description", ""),
+            "function_signature": cq.get("function_signature", "def solve():"),
+            "difficulty": cq.get("difficulty", "Medium"),
+            "technique": cq.get("technique", "General DSA"), # Fallback for manual
             "public_testcases": cq.get("public_testcases", []),
             "hidden_testcases": cq.get("hidden_testcases", [])
         }
@@ -82,9 +83,10 @@ def save_config(payload: SaveConfigRequest, current_user: UserResponse = Depends
     for iq in payload.interview_questions:
         q_data = {
             "job_id": payload.job_id,
-            "question": iq["question"],
+            "question": iq.get("question", ""),
             "keywords": iq.get("keywords", []),
-            "difficulty": iq["difficulty"]
+            "expected_points": iq.get("expected_points", []),
+            "difficulty": iq.get("difficulty", "Medium")
         }
         supabase.table("interview_questions").insert(q_data).execute()
         

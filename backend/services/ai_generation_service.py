@@ -46,27 +46,30 @@ class AIGenerationService:
     @staticmethod
     def generate_coding_questions(total_questions: int, difficulty_distribution: Dict[str, int], topics: List[str]) -> List[Dict[str, Any]]:
         """
-        Generates clean, LeetCode-style coding questions focused on DSA.
+        Generates high-quality, non-trivial DSA problems with logical twists.
         """
         topics_str = ", ".join(topics)
         dist_str = ", ".join([f"{count} {diff}" for diff, count in difficulty_distribution.items() if count > 0])
         
         prompt = f"""
-        Generate EXACTLY {total_questions} standard Data Structures & Algorithms problems.
+        Generate EXACTLY {total_questions} ADVANCED Data Structures & Algorithms problems.
         Distribution: {dist_str}.
         Topics: {topics_str}.
         
-        REQUIRED TOPIC RANGE: Arrays, Strings, HashMap, Two Pointers, Sliding Window, Sorting, Stack/Queue, Basic DP.
-        STRICTLY FORBIDDEN: Cloud specific (Azure/AWS), DevOps, or domain-specific logic.
+        QUALITY REQUIREMENTS:
+        - Avoid standard "LeetCode Easy" or extremely common problems (e.g., Two Sum, Contains Duplicate, Valid Palindrome).
+        - Introduce logical twists, multi-step reasoning, or specific edge-case constraints.
+        - Problems should be "Interview-Level" reflecting real-world complexity.
+        - Topic focus: Arrays, Strings, HashMap, Two Pointers, Sliding Window, Sorting, Stack/Queue, Basic DP.
 
         OUTPUT FORMAT: Strict JSON only.
         {{
             "coding_questions": [
                 {{
                     "title": "Title",
-                    "description": "Problem statement and instructions.",
+                    "description": "Problem statement with specific constraints and edge cases.",
                     "function_signature": "def solve(...) -> ...:",
-                    "constraints": "Space/Time complexity and input bounds.",
+                    "constraints": "Space/Time complexity targets.",
                     "difficulty": "easy | medium | hard",
                     "public_testcases": [{{"input": "str", "output": "str"}}],
                     "hidden_testcases": [{{"input": "str", "output": "str"}}, {{"input": "str", "output": "str"}}]
@@ -75,9 +78,8 @@ class AIGenerationService:
         }}
 
         RULES:
-        - NO explanations, NO solution steps, NO extra text.
+        - NO explanations, NO solution hints.
         - Function signature MUST be 'solve' with Python 3 type hints.
-        - Test cases must be eval-compatible Python strings.
         """
 
         try:
@@ -91,15 +93,19 @@ class AIGenerationService:
     @staticmethod
     def generate_interview_questions(total_questions: int, difficulty_distribution: Dict[str, int], topics: List[str]) -> List[Dict[str, Any]]:
         """
-        Generates concise, keyword-focused interview questions.
+        Generates concise interview questions with robust ground truth (expected_points).
         """
         topics_str = ", ".join(topics)
         dist_str = ", ".join([f"{count} {diff}" for diff, count in difficulty_distribution.items() if count > 0])
 
         prompt = f"""
-        Generate EXACTLY {total_questions} concise interview questions.
+        Generate EXACTLY {total_questions} professional interview questions.
         Distribution: {dist_str}.
         Focus Areas: {topics_str}.
+
+        GROUND TRUTH REQUIREMENT:
+        - For each question, provide 3 to 5 'expected_points' that represents a high-quality answer.
+        - Provide 'keywords' for evaluation.
 
         OUTPUT FORMAT: Strict JSON only.
         {{
@@ -107,14 +113,14 @@ class AIGenerationService:
                 {{
                     "question": "Question text",
                     "difficulty": "easy | medium | hard",
-                    "keywords": ["key", "words", "only"]
+                    "keywords": ["key", "words"],
+                    "expected_points": ["point 1", "point 2", "point 3"]
                 }}
             ]
         }}
 
         RULES:
-        - NO long explanations, NO paragraph answers.
-        - ONLY keywords for evaluation targets.
+        - NO paragraph answers, NO conversational text.
         """
 
         try:

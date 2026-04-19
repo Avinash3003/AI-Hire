@@ -18,7 +18,7 @@ def verify_assessment(token: str, supabase: Client = Depends(get_supabase)):
         raise HTTPException(status_code=400, detail="Assessment already completed or expired")
         
     try:
-        # Supabase returns ISO formats with varying tz info. Convert to pure naive for safe comparison.
+        # Supabase returns ISO formats with varying tz info
         exp_str = link_data["expires_at"].replace("Z", "").split("+")[0]
         if datetime.utcnow() > datetime.fromisoformat(exp_str):
             raise HTTPException(status_code=400, detail="Assessment has expired")
@@ -27,42 +27,68 @@ def verify_assessment(token: str, supabase: Client = Depends(get_supabase)):
         
     job_id = link_data.get("applications", {}).get("job_id")
     if job_id:
+        # FETCH ALL CODING QUESTIONS
         q_check = supabase.table("coding_questions").select("*").eq("job_id", job_id).execute()
         if q_check.data:
-            q = q_check.data[0]
-            # Strip highly confidential data
-            q.pop("hidden_testcases", None)
-            q.pop("technique", None)
-            link_data["coding_question"] = q
+            for q in q_check.data:
+                q.pop("hidden_testcases", None)
+                q.pop("technique", None)
+            link_data["coding_questions"] = q_check.data
+            
+        # FETCH ALL INTERVIEW QUESTIONS
+        i_check = supabase.table("interview_questions").select("*").eq("job_id", job_id).execute()
+        if i_check.data:
+            link_data["interview_questions"] = i_check.data
         
     return link_data
 
 from pydantic import BaseModel
+from typing import Optional
 
 class InterviewSubmit(BaseModel):
     transcript: str
+    question_id: Optional[str] = None
 
 @router.post("/{token}/interview")
 def submit_interview(token: str, payload: InterviewSubmit, supabase: Client = Depends(get_supabase)):
-    link_check = supabase.table("assessment_links").select("id, status, application_id").eq("token", token).execute()
+    from services.interview_scoring_service import InterviewScoringService
+    
+    link_check = supabase.table("assessment_links").select("id, status, application_id, job_id").eq("token", token).execute()
     if not link_check.data or link_check.data[0]["status"] != "pending":
          raise HTTPException(status_code=400, detail="Invalid token")
-         
-    # Generate mock AI evaluation of transcript
-    mock_comm = 85
-    mock_tech = 78
+    
+    target = link_check.data[0]
+    
+    # Try to find the ground truth for scoring
+    # If no question_id provided, pick the first one (fallback)
+    query = supabase.table("interview_questions").select("*").eq("job_id", target["job_id"])
+    if payload.question_id:
+        query = query.eq("id", payload.question_id)
+    
+    q_data = query.execute().data
+    if not q_data:
+        score_res = {"score": 0, "feedback": "Question not found for scoring."}
+    else:
+        question = q_data[0]
+        score_res = InterviewScoringService.evaluate_answer(
+            transcript=payload.transcript,
+            question=question["question"],
+            keywords=question.get("keywords", []),
+            expected_points=question.get("expected_points", [])
+        )
     
     supabase.table("interview_results").insert({
-        "assessment_link_id": link_check.data[0]["id"],
+        "assessment_link_id": target["id"],
         "transcript": payload.transcript,
-        "communication_score": mock_comm,
-        "technical_score": mock_tech
+        "communication_score": score_res.get("score", 0),
+        "technical_score": score_res.get("score", 0) # Using unified score for now
     }).execute()
     
-    return {"status": "success"}
+    return {"status": "success", "score": score_res.get("score")}
 
 class CodingSubmit(BaseModel):
     code: str
+    question_id: Optional[str] = None
 
 @router.post("/{token}/coding")
 def submit_coding(token: str, payload: CodingSubmit, supabase: Client = Depends(get_supabase)):
@@ -74,15 +100,21 @@ def submit_coding(token: str, payload: CodingSubmit, supabase: Client = Depends(
          
     target = link_check.data[0]
     
-    # 1. Fetch the coding question assigned to this job
-    q_check = supabase.table("coding_questions").select("*").eq("job_id", target["job_id"]).execute()
-    if not q_check.data:
-         # Fallback to mock if no AI questions exist
+    # 1. Fetch the specific coding question
+    query = supabase.table("coding_questions").select("*").eq("job_id", target["job_id"])
+    if payload.question_id:
+        query = query.eq("id", payload.question_id)
+        
+    q_check = query.execute().data
+    if not q_check:
+         # Fallback logic
          score = 90
          total_tests = 5
          passed_tests = 4
+         curr_q_id = None
     else:
-         question = q_check.data[0]
+         question = q_check[0]
+         curr_q_id = question["id"]
          # Evaluate using Judge0 service combining public and hidden tests
          test_cases = question.get("public_testcases", []) + question.get("hidden_testcases", [])
          
@@ -96,9 +128,10 @@ def submit_coding(token: str, payload: CodingSubmit, supabase: Client = Depends(
          total_tests = result["total"]
          passed_tests = result["passed"]
          
-    # Mock code evaluation / Real Evaluation
+    # Save specific results
     supabase.table("coding_results").insert({
         "assessment_link_id": target["id"],
+        "question_id": curr_q_id,
         "code_submitted": payload.code,
         "test_cases_passed": passed_tests,
         "total_test_cases": total_tests,

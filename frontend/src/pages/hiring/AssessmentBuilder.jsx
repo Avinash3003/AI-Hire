@@ -79,9 +79,26 @@ const AssessmentBuilder = () => {
   const [codingPool, setCodingPool] = useState([]);
   const [interviewPool, setInterviewPool] = useState([]);
   
-  // User selections
-  const [selectedCoding, setSelectedCoding] = useState([]);
-  const [selectedInterview, setSelectedInterview] = useState([]);
+  // Custom Manual Questions
+  const [manualCoding, setManualCoding] = useState([]);
+  const [manualInterview, setManualInterview] = useState([]);
+  
+  // View Modes: 'ai' or 'manual'
+  const [codingMode, setCodingMode] = useState('ai'); 
+  const [interviewMode, setInterviewMode] = useState('ai');
+
+  // Form states for manual entry
+  const [showCodingForm, setShowCodingForm] = useState(false);
+  const [showInterviewForm, setShowInterviewForm] = useState(false);
+  
+  const [newCoding, setNewCoding] = useState({ 
+    title: '', description: '', function_signature: 'def solve(n: int) -> int:', 
+    constraints: '', difficulty: 'Medium', public_testcases: [{input:'', output:''}], 
+    hidden_testcases: [{input:'', output:''}, {input:'', output:''}] 
+  });
+  const [newInterview, setNewInterview] = useState({ 
+    question: '', difficulty: 'Medium', keywords: [], expected_points: [] 
+  });
 
   const fetchJob = useCallback(async () => {
     try {
@@ -99,6 +116,22 @@ const AssessmentBuilder = () => {
   }, [jobId, navigate]);
 
   useEffect(() => { fetchJob(); }, [fetchJob]);
+
+  const handleAddManualCoding = () => {
+    if (!newCoding.title || !newCoding.description) return toast.error("Please fill required fields");
+    setManualCoding([...manualCoding, { ...newCoding, id: `manual-${Date.now()}` }]);
+    setShowCodingForm(false);
+    setNewCoding({ title: '', description: '', function_signature: 'def solve(n: int) -> int:', constraints: '', difficulty: 'Medium', public_testcases: [{input:'', output:''}], hidden_testcases: [{input:'', output:''}, {input:'', output:''}] });
+    toast.success("Manual coding problem added to pool.");
+  };
+
+  const handleAddManualInterview = () => {
+    if (!newInterview.question) return toast.error("Question text is required");
+    setManualInterview([...manualInterview, { ...newInterview, id: `manual-${Date.now()}` }]);
+    setShowInterviewForm(false);
+    setNewInterview({ question: '', difficulty: 'Medium', keywords: [], expected_points: [] });
+    toast.success("Manual interview question added to pool.");
+  };
 
   const handleGenerate = async () => {
     if (!job) return;
@@ -194,9 +227,11 @@ const AssessmentBuilder = () => {
       const max = isCoding ? job?.config_json?.rounds?.coding?.questions : job?.config_json?.rounds?.interview?.questions;
       const setter = isCoding ? setSelectedCoding : setSelectedInterview;
       
+      const qKey = isCoding ? q.title : q.question;
+      
       setter(prev => {
-          const exists = prev.find(item => item.title === q.title || item.question === q.question);
-          if (exists) return prev.filter(item => (isCoding ? item.title !== q.title : item.question !== q.question));
+          const exists = prev.find(item => (isCoding ? item.title === qKey : item.question === qKey));
+          if (exists) return prev.filter(item => (isCoding ? item.title !== qKey : item.question !== qKey));
           if (prev.length >= max) {
               toast.error(`Limit reached for this round (${max} Qs).`);
               return prev;
@@ -204,6 +239,10 @@ const AssessmentBuilder = () => {
           return [...prev, q];
       });
   };
+
+  // Selection state
+  const [selectedCoding, setSelectedCoding] = useState([]);
+  const [selectedInterview, setSelectedInterview] = useState([]);
 
   if (fetching) return <div className="p-20 text-center"><RefreshCw className="animate-spin text-primary-500 mx-auto mb-4"/> Loading Sandbox Parameters...</div>;
   if (!job) return <div className="p-20 text-center text-gray-500 tracking-widest uppercase">System Initialization Failure. Please Refresh.</div>;
@@ -281,7 +320,10 @@ const AssessmentBuilder = () => {
               <div className="flex justify-between items-end border-b border-white/5 pb-4">
                   <div className="space-y-1">
                     <h3 className="text-xl font-bold flex items-center gap-3"><Code2 className="text-blue-400"/> Coding Questions</h3>
-                    <p className="text-xs text-gray-500 underline decoration-blue-500/30">Select exactly {config.coding.questions} problem(s)</p>
+                    <div className="flex items-center gap-4 mt-2">
+                        <button onClick={() => setCodingMode('ai')} className={`text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-lg border ${codingMode === 'ai' ? 'bg-blue-500/10 border-blue-500/30 text-blue-400' : 'bg-white/5 border-white/5 text-gray-500 hover:text-gray-300'}`}>AI Pool</button>
+                        <button onClick={() => setCodingMode('manual')} className={`text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-lg border ${codingMode === 'manual' ? 'bg-blue-500/10 border-blue-500/30 text-blue-400' : 'bg-white/5 border-white/5 text-gray-500 hover:text-gray-300'}`}>Manual Entry</button>
+                    </div>
                   </div>
                   {config.coding.enabled && (
                     <div className={`px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest ${selectedCoding.length === config.coding.questions ? 'bg-green-500/20 text-green-400' : 'bg-white/5 text-gray-600'}`}>
@@ -292,6 +334,27 @@ const AssessmentBuilder = () => {
 
               {!config.coding.enabled ? (
                   <div className="p-12 text-center bg-white/5 rounded-3xl border border-white/5 opacity-40 italic text-gray-500">Technical round disabled in job settings.</div>
+              ) : codingMode === 'manual' ? (
+                  <div className="space-y-4">
+                      {showCodingForm ? (
+                          <div className="p-6 bg-white/5 border border-blue-500/20 rounded-[2rem] space-y-4 animate-fade-in">
+                              <input type="text" placeholder="Problem Title" className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2 text-sm" value={newCoding.title} onChange={e => setNewCoding({...newCoding, title: e.target.value})}/>
+                              <textarea placeholder="Description" className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2 text-sm h-24" value={newCoding.description} onChange={e => setNewCoding({...newCoding, description: e.target.value})}/>
+                              <input type="text" placeholder="Function Signature" className="w-full bg-[#0f1117] border border-white/10 rounded-xl px-4 py-2 text-xs font-mono text-purple-400" value={newCoding.function_signature} onChange={e => setNewCoding({...newCoding, function_signature: e.target.value})}/>
+                              <div className="flex gap-4">
+                                  <button onClick={handleAddManualCoding} className="flex-1 bg-blue-600 py-2 rounded-xl text-xs font-bold">Add to Selection Pool</button>
+                                  <button onClick={() => setShowCodingForm(false)} className="px-4 py-2 bg-white/5 rounded-xl text-xs font-bold text-gray-400">Cancel</button>
+                              </div>
+                          </div>
+                      ) : (
+                          <button onClick={() => setShowCodingForm(true)} className="w-full py-4 border-2 border-dashed border-white/10 rounded-[2rem] text-sm text-gray-500 hover:bg-white/5 transition-all">+ Add New Custom Question</button>
+                      )}
+                      
+                      {manualCoding.map((q, i) => (
+                           <QuestionCard key={i} q={q} type="coding" selected={selectedCoding.find(s=>s.title === q.title)} onToggle={(q) => toggleSelection(q, 'coding')}/>
+                      ))}
+                      {manualCoding.length === 0 && !showCodingForm && <p className="text-center text-xs text-gray-600 py-10 italic">Your custom question library is empty.</p>}
+                  </div>
               ) : codingPool.length === 0 ? (
                   <div className="p-20 text-center bg-white/5 rounded-[2.5rem] border-2 border-dashed border-white/5 text-gray-600 font-bold animate-pulse">Awaiting AI Pulse... Click Generate above.</div>
               ) : (
@@ -308,7 +371,10 @@ const AssessmentBuilder = () => {
               <div className="flex justify-between items-end border-b border-white/5 pb-4">
                   <div className="space-y-1">
                     <h3 className="text-xl font-bold flex items-center gap-3"><MessageSquare className="text-green-400"/> Interview Questions</h3>
-                    <p className="text-xs text-gray-500 underline decoration-green-500/30">Select exactly {config.interview.questions} query(ies)</p>
+                    <div className="flex items-center gap-4 mt-2">
+                        <button onClick={() => setInterviewMode('ai')} className={`text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-lg border ${interviewMode === 'ai' ? 'bg-green-500/10 border-green-500/30 text-green-400' : 'bg-white/5 border-white/5 text-gray-500 hover:text-gray-300'}`}>AI Pool</button>
+                        <button onClick={() => setInterviewMode('manual')} className={`text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-lg border ${interviewMode === 'manual' ? 'bg-green-500/10 border-green-500/30 text-green-400' : 'bg-white/5 border-white/5 text-gray-500 hover:text-gray-300'}`}>Manual Entry</button>
+                    </div>
                   </div>
                   {config.interview.enabled && (
                     <div className={`px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest ${selectedInterview.length === config.interview.questions ? 'bg-green-500/20 text-green-400' : 'bg-white/5 text-gray-600'}`}>
@@ -319,6 +385,25 @@ const AssessmentBuilder = () => {
 
               {!config.interview.enabled ? (
                   <div className="p-12 text-center bg-white/5 rounded-3xl border border-white/5 opacity-40 italic text-gray-500">Speech round disabled in job settings.</div>
+              ) : interviewMode === 'manual' ? (
+                  <div className="space-y-4">
+                      {showInterviewForm ? (
+                          <div className="p-6 bg-white/5 border border-green-500/20 rounded-[2rem] space-y-4 animate-fade-in">
+                              <textarea placeholder="Interview Question text..." className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-4 text-sm h-32" value={newInterview.question} onChange={e => setNewInterview({...newInterview, question: e.target.value})}/>
+                              <div className="flex gap-4">
+                                  <button onClick={handleAddManualInterview} className="flex-1 bg-green-600 py-2 rounded-xl text-xs font-bold">Add to Selection Pool</button>
+                                  <button onClick={() => setShowInterviewForm(false)} className="px-4 py-2 bg-white/5 rounded-xl text-xs font-bold text-gray-400">Cancel</button>
+                              </div>
+                          </div>
+                      ) : (
+                          <button onClick={() => setShowInterviewForm(true)} className="w-full py-4 border-2 border-dashed border-white/10 rounded-[2rem] text-sm text-gray-500 hover:bg-white/5 transition-all">+ Add New Manual Question</button>
+                      )}
+                      
+                      {manualInterview.map((q, i) => (
+                           <QuestionCard key={i} q={q} type="interview" selected={selectedInterview.find(s=>s.question === q.question)} onToggle={(q) => toggleSelection(q, 'interview')}/>
+                      ))}
+                      {manualInterview.length === 0 && !showInterviewForm && <p className="text-center text-xs text-gray-600 py-10 italic">No manual questions added yet.</p>}
+                  </div>
               ) : interviewPool.length === 0 ? (
                   <div className="p-20 text-center bg-white/5 rounded-[2.5rem] border-2 border-dashed border-white/5 text-gray-600 font-bold animate-pulse">Awaiting AI Pulse... Click Generate above.</div>
               ) : (
