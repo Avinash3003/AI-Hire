@@ -1,0 +1,77 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary-50: #eef2ff;
+  --color-primary-100: #e0e7ff;
+  --color-primary-300: #a5b4fc;
+  --color-primary-400: #818cf8;
+  --color-primary-500: #6366f1;
+  --color-primary-600: #4f46e5;
+  --color-primary-700: #4338ca;
+
+  /* Accent (Neon Fuchsia) */
+  --color-accent-400: #e879f9;
+  --color-accent-500: #d946ef;
+
+  /* Deep Zinc / Midnight */
+  --color-dark-bg: #09090b;
+  --color-dark-surface: #18181b;
+  --color-dark-surface-hover: #27272a;
+  --color-dark-border: #27272a;
+  --color-dark-border-hover: #3f3f46;
+
+  --animate-fade-in: fadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-slide-up: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  --animate-pulse-slow: pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  --animate-glow: glow 3s ease-in-out infinite alternate;
+}
+
+@layer base {
+  body {
+    @apply bg-dark-bg text-gray-200 antialiased selection:bg-primary-500/30 selection:text-white min-h-screen relative overflow-x-hidden;
+  }
+}
+
+@layer utilities {
+  .glass-panel {
+    @apply bg-dark-surface/60 backdrop-blur-xl border border-white/5 transition-all duration-300 shadow-2xl;
+  }
+  .glass-panel:hover {
+    @apply border-white/10 bg-dark-surface/80;
+  }
+  
+  .glass-nav {
+    @apply bg-dark-bg/70 backdrop-blur-lg border-b border-white/5;
+  }
+
+  .text-gradient {
+    @apply bg-gradient-to-r from-primary-400 to-accent-400 bg-clip-text text-transparent;
+  }
+
+  .btn-primary {
+    @apply relative overflow-hidden bg-primary-600 hover:bg-primary-500 text-white font-medium rounded-xl transition-all shadow-[0_0_20px_rgba(99,102,241,0.2)] hover:shadow-[0_0_30px_rgba(99,102,241,0.4)];
+  }
+}
+
+/* Background animated glow orbs */
+.bg-glow {
+  position: fixed;
+  top: -20%;
+  left: -10%;
+  width: 50vw;
+  height: 50vw;
+  background: radial-gradient(circle, rgba(99, 102, 241, 0.15) 0%, rgba(99, 102, 241, 0) 60%);
+  z-index: -1;
+  pointer-events: none;
+}
+
+.bg-glow-2 {
+  position: fixed;
+  bottom: -20%;
+  right: -10%;
+  width: 50vw;
+  height: 50vw;
+  background: radial-gradient(circle, rgba(217, 70, 239, 0.12) 0%, rgba(217, 70, 239, 0) 60%);
+  z-index: -1;
+  pointer-events: none;
+}
