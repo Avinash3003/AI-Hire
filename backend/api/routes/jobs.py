@@ -80,5 +80,23 @@ def delete_job(job_id: str, current_user: UserResponse = Depends(get_current_use
     if not existing.data or existing.data[0]["created_by"] != current_user.id:
         raise HTTPException(status_code=403, detail="Not authorized to delete this job")
         
-    response = supabase.table("jobs").delete().eq("id", job_id).execute()
-    return {"message": "Job deleted successfully"}
+    # Python-side Cascading Deletes (to handle ON DELETE NO ACTION defaults safely)
+    try:
+        links = supabase.table("assessment_links").select("id").eq("job_id", job_id).execute()
+        link_ids = [l["id"] for l in links.data] if links.data else []
+        
+        if link_ids:
+            supabase.table("coding_results").delete().in_("assessment_link_id", link_ids).execute()
+            supabase.table("interview_results").delete().in_("assessment_link_id", link_ids).execute()
+            
+        supabase.table("assessment_links").delete().eq("job_id", job_id).execute()
+        supabase.table("applications").delete().eq("job_id", job_id).execute()
+        
+        supabase.table("coding_questions").delete().eq("job_id", job_id).execute()
+        supabase.table("interview_questions").delete().eq("job_id", job_id).execute()
+        supabase.table("assessment_config").delete().eq("job_id", job_id).execute()
+        
+        supabase.table("jobs").delete().eq("id", job_id).execute()
+        return {"message": "Job and all associated data deleted successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to cascade delete: {str(e)}")

@@ -28,41 +28,60 @@ class AIGenerationService:
         if json_mode:
             config["response_mime_type"] = "application/json"
 
-        try:
-            response = client.models.generate_content(
-                model="gemini-flash-latest",
-                contents=prompt,
-                config=config
-            )
-        except Exception as e:
-            print(f"Gemini API Call Failed: {e}")
-            raise ValueError(f"Gemini API Error: {str(e)}")
+        # Robust array of free-tier compatible models in order of preference
+        models_to_try = [
+            "gemini-2.0-flash",
+            "gemini-2.5-flash-lite",
+            "gemini-2.0-flash-lite",
+            "gemini-2.5-flash"
+        ]
+        
+        last_error = None
+        for model_name in models_to_try:
+            try:
+                response = client.models.generate_content(
+                    model=model_name,
+                    contents=prompt,
+                    config=config
+                )
+                if response and hasattr(response, 'text'):
+                    return response.text.strip()
+            except Exception as e:
+                print(f"Model {model_name} failed: {e}")
+                last_error = e
 
-        if not response or not hasattr(response, 'text'):
-            raise ValueError("Empty response from Gemini API")
-
-        return response.text.strip()
+        raise ValueError(f"All backup Gemini models failed or reached quota. Last Error: {str(last_error)}")
 
     @staticmethod
     def generate_coding_questions(total_questions: int, difficulty_distribution: Dict[str, int], topics: List[str]) -> List[Dict[str, Any]]:
         """
         Generates high-quality, non-trivial DSA problems with logical twists.
         """
+        topics_str = ", ".join(topics) if topics else "General Algorithms, Arrays, HashMaps"
         dist_str = ", ".join([f"{count} {diff}" for diff, count in difficulty_distribution.items() if count > 0])
         
         prompt = f"""
         Generate EXACTLY {total_questions} ADVANCED Data Structures & Algorithms problems.
-        Distribution: {dist_str}.
+        
+        REQUIRED DIFFICULTY DISTRIBUTION: {dist_str}.
+        CRITICAL: Ensure the exact count of easy, medium, and hard questions aligns strictly with the distribution requested above.
+        
+        REQUIRED TOPICS:
+        You MUST focus strictly on the following specific topics: {topics_str}.
+        Every single question generated MUST be solvable using these requested algorithms/concepts.
         
         CRITICAL RULE:
         Generate ONLY pure Data Structures and Algorithms problems.
         DO NOT generate domain-specific or real-world system-based questions (e.g., no Azure, DevOps, Logs, MLOps, or Cloud).
         Focus ONLY on abstract problem solving like LeetCode / HackerRank.
         
+        STRICT LANGUAGE-AGNOSTIC RULE:
+        Do NOT mention specific programming languages (like Java, Go, Python, C++) in the question titles, constraints, or descriptions.
+        Do NOT append language tags to the titles. The questions MUST be 100% language-agnostic because the execution environment handles the language separately.
+        
         QUALITY REQUIREMENTS:
-        - Avoid very basic problems (e.g., standard Two Sum, Contains Duplicate).
+        - Bring variety to the questions.
         - Introduce logical twists, multi-step reasoning, or specific edge-case constraints.
-        - Topic focus: Arrays, Strings, HashMap, Two Pointers, Sliding Window, Sorting, Stack/Queue, Basic DP, Greedy.
         - Problems should be "Interview-Level" reflecting real-world complexity but purely algorithmic.
 
         OUTPUT FORMAT: Strict JSON only.

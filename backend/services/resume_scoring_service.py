@@ -1,10 +1,8 @@
 import requests
 import fitz  # PyMuPDF
 import re
+import json
 from io import BytesIO
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
-from rapidfuzz import fuzz, process
 
 class ResumeScoringService:
     @staticmethod
@@ -16,91 +14,75 @@ class ResumeScoringService:
                 text += page.get_text()
             return text
         except Exception as e:
-            # Fallback mock for local testing
             return "This candidate has basic experience in software engineering and web development. Proficient in React and Python."
 
-    @staticmethod
-    def clean_text(text: str) -> str:
-        text = text.lower()
-        # Remove non-alphabetical characters to keep clean semantic terms
-        text = re.sub(r'[^a-z0-9\s]', ' ', text)
-        return ' '.join(text.split())
-
-    @staticmethod
-    def compute_tfidf_similarity(resume_text: str, jd_text: str) -> float:
-        if not resume_text.strip() or not jd_text.strip():
-            return 0.0
-        vectorizer = TfidfVectorizer(stop_words='english')
-        tfidf_matrix = vectorizer.fit_transform([jd_text, resume_text])
-        similarity = cosine_similarity(tfidf_matrix[0:1], tfidf_matrix[1:2])[0][0]
-        return float(similarity * 100)
-
-    @staticmethod
-    def compute_skill_match(resume_text: str, required_skills: list[str]) -> dict:
-        if not required_skills:
-            return {"score": 100.0, "strengths": [], "missing_skills": []}
-            
-        strengths = []
-        missing = []
-        resume_words_raw = resume_text.lower()
-        
-        for skill in required_skills:
-            skill_lower = skill.strip().lower()
-            # 1. Exact Boundary Match (fast, precise)
-            if re.search(rf"\b{re.escape(skill_lower)}\b", resume_words_raw):
-                strengths.append(skill)
-                continue
-                
-            # 2. Aggressive Substring Fallback
-            if skill_lower in resume_words_raw:
-                strengths.append(skill)
-                continue
-                
-            # 3. Soft Fuzzy Search (lowered threshold due to parsing artifacts)
-            best_match = process.extractOne(skill_lower, resume_words_raw.split(), scorer=fuzz.partial_ratio)
-            
-            if best_match and best_match[1] >= 65:  # 65% fuzzy match threshold
-                strengths.append(skill)
-            else:
-                missing.append(skill)
-                
-        match_percentage = (len(strengths) / len(required_skills)) * 100
-        return {
-            "score": match_percentage,
-            "strengths": strengths,
-            "missing_skills": missing
-        }
-
     @classmethod
-    def evaluate_resume(cls, pdf_bytes: bytes, job_description: str, required_skills: list[str]) -> dict:
-        # Step 1: Extract & Clean
+    def evaluate_resume(cls, pdf_bytes: bytes, job_description: str, required_skills: list[str], constraints: dict = None) -> dict:
+        from services.ai_generation_service import AIGenerationService
+        
         raw_text = cls.extract_text_from_pdf(pdf_bytes)
-        clean_resume = cls.clean_text(raw_text)
-        clean_jd = cls.clean_text(job_description)
+        safe_text = raw_text[:8000]
 
-        # Step 2: TF-IDF Scaling
-        tfidf_score = cls.compute_tfidf_similarity(clean_resume, clean_jd)
+        prompt = f"""
+        Act as an expert technical recruiter ATS parser.
+        Extract the following strictly from the resume below.
+        
+        RESUME:
+        {safe_text}
+        
+        JOB DESCRIPTION REQUIRED SKILLS:
+        {required_skills}
 
-        # Step 3: Skill Verification 
-        skill_analysis = cls.compute_skill_match(clean_resume, required_skills)
-        skill_score = skill_analysis["score"]
-
-        # Step 4: Final Weighted Calculation (Favor explicit skills over semantic fluff)
-        final_score = int(round((0.3 * tfidf_score) + (0.7 * skill_score)))
-        final_score = min(100, max(0, final_score)) # Clamp between 0-100
-
-        # Step 5: Recommendations
-        if final_score >= 75:
-            rec = "Strong Fit"
-        elif final_score >= 50:
-            rec = "Moderate Fit"
-        else:
-            rec = "Weak Fit"
-
-        # Step 6: Output
-        return {
-            "score": final_score,
-            "strengths": skill_analysis["strengths"],
-            "missing_skills": skill_analysis["missing_skills"],
-            "recommendation": rec
-        }
+        OUTPUT FORMAT: Strict JSON only! No markdown blocks.
+        {{
+            "skills": ["skill1", "skill2"],
+            "years_of_experience": 5,
+            "graduation_year": 2020,
+            "education": "BS Computer Science",
+            "missing_skills": ["missing1"]
+        }}
+        """
+        
+        try:
+            raw = AIGenerationService._generate(prompt)
+            raw = raw.strip()
+            if raw.startswith("```json"): raw = raw[7:]
+            elif raw.startswith("```"): raw = raw[3:]
+            if raw.endswith("```"): raw = raw[:-3]
+            
+            data = json.loads(raw.strip())
+            
+            owned = data.get("skills", [])
+            missing = data.get("missing_skills", [])
+            yoe = int(data.get("years_of_experience") or 0)
+            
+            score = 100
+            score -= (len(missing) * 10)
+            
+            if constraints and "min_experience" in constraints:
+                if yoe < int(constraints["min_experience"]):
+                    score -= 30
+                    
+            final_score = min(100, max(0, score))
+            
+            if final_score >= 75: rec = "Strong Fit"
+            elif final_score >= 50: rec = "Moderate Fit"
+            else: rec = "Weak Fit"
+            
+            return {
+                "score": final_score,
+                "strengths": owned,
+                "missing_skills": missing,
+                "recommendation": rec,
+                "extracted_data": data
+            }
+            
+        except Exception as e:
+            print(f"LLM Resume Parsing Failed: {e}")
+            return {
+                "score": 50,
+                "strengths": [],
+                "missing_skills": required_skills,
+                "recommendation": "Error evaluating resume natively.",
+                "extracted_data": {}
+            }

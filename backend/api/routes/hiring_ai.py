@@ -21,8 +21,10 @@ def generate_coding(payload: GenerateRequest, current_user: UserResponse = Depen
         raise HTTPException(status_code=403, detail="Unauthorized")
         
     try:
+        # Generate an inflated AI Pool (3x the requested assignment count) to give Recruiters variation options
+        pool_size = max(5, payload.total_questions * 3)
         questions = AIGenerationService.generate_coding_questions(
-            total_questions=payload.total_questions,
+            total_questions=pool_size,
             difficulty_distribution=payload.difficulty_distribution,
             topics=payload.topics
         )
@@ -36,8 +38,10 @@ def generate_interview(payload: GenerateRequest, current_user: UserResponse = De
         raise HTTPException(status_code=403, detail="Unauthorized")
         
     try:
+        # Inflate AI pool to give variations
+        pool_size = max(5, payload.total_questions * 3)
         questions = AIGenerationService.generate_interview_questions(
-            total_questions=payload.total_questions,
+            total_questions=pool_size,
             difficulty_distribution=payload.difficulty_distribution,
             topics=payload.topics
         )

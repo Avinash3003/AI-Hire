@@ -28,6 +28,7 @@ import AssessmentBuilder from './pages/hiring/AssessmentBuilder';
 // Student / Public Pages
 import PublicJobs from './pages/PublicJobs';
 import StudentApplications from './pages/student/StudentApplications';
+import StudentDashboard from './pages/dashboards/StudentDashboard';
 import AssessmentEngine from './pages/student/AssessmentEngine';
 
 function App() {
@@ -51,6 +52,7 @@ function App() {
               <Route path="/hiring-jobs/:jobId" element={<JobDetails />} />
               <Route path="/hiring-jobs/:jobId/review" element={<ApplicantReview />} />
               <Route path="/hiring-jobs/:jobId/assessment-builder" element={<AssessmentBuilder />} />
+              <Route path="/profile" element={<Profile />} />
             </Route>
           </Route>
 
@@ -61,6 +63,7 @@ function App() {
              
              {/* Protected Student Portal operations */}
              <Route element={<ProtectedRoute allowedRole="student" />}>
+               <Route path="student-dashboard" element={<Profile />} />
                <Route path="student-applications" element={<StudentApplications />} />
                <Route path="profile" element={<Profile />} />
              </Route>

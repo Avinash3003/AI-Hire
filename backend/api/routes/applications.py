@@ -51,8 +51,18 @@ def get_my_applications(current_user: UserResponse = Depends(get_current_user), 
     if current_user.role != "student":
         raise HTTPException(status_code=403, detail="Only students can view their applications")
 
-    response = supabase.table("applications").select("*, assessment_links(*)").eq("email", current_user.email).order('applied_at', desc=True).execute()
+    response = supabase.table("applications").select("*, assessment_links(*), jobs(title, department)").eq("email", current_user.email).order('applied_at', desc=True).execute()
     return response.data
+
+@router.post("/{app_id}/in_progress")
+def mark_in_progress(app_id: str, current_user: UserResponse = Depends(get_current_user), supabase: Client = Depends(get_supabase)):
+    if current_user.role != "student":
+        raise HTTPException(status_code=403, detail="Only students can update this status")
+    
+    # Optional logic: mark link as in_progress if needed, or application
+    # We will update the application status so the recruiter sees it.
+    supabase.table("applications").update({"status": "in_progress"}).eq("id", app_id).execute()
+    return {"status": "success"}
 
 
 @router.get("/job/{job_id}")
@@ -75,13 +85,15 @@ async def apply_to_job(
     resume: UploadFile = File(...),
     supabase: Client = Depends(get_supabase)
 ):
-    job_check = supabase.table("jobs").select("status, description, skills_required").eq("id", job_id).execute()
+    job_check = supabase.table("jobs").select("status, description, skills_required, config_json").eq("id", job_id).execute()
     if not job_check.data or job_check.data[0]["status"] != "published":
         raise HTTPException(status_code=404, detail="Job not found or not open for applications")
 
     target_job = job_check.data[0]
     description = target_job.get("description", "")
     skills = target_job.get("skills_required", [])
+    config = target_job.get("config_json", {})
+    constraints = config.get("resume_constraints", {})
 
     pdf_bytes = await resume.read()
 
@@ -93,7 +105,7 @@ async def apply_to_job(
     resume_url_path = f"http://localhost:8000/api/applications/downloads/{safe_filename}"
 
     try:
-        evaluation = ResumeScoringService.evaluate_resume(pdf_bytes, description, skills)
+        evaluation = ResumeScoringService.evaluate_resume(pdf_bytes, description, skills, constraints=constraints)
         ai_score = evaluation["score"]
         ai_strengths = evaluation["strengths"]
         ai_missing = evaluation["missing_skills"]
@@ -130,6 +142,13 @@ async def apply_to_job(
 @router.get("/downloads/{filename}")
 def download_resume(filename: str):
     file_path = os.path.join("uploads", filename)
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="File not found")
+    return FileResponse(file_path)
+
+@router.get("/downloads/violations/{filename}")
+def download_violation(filename: str):
+    file_path = os.path.join("uploads", "violations", filename)
     if not os.path.exists(file_path):
         raise HTTPException(status_code=404, detail="File not found")
     return FileResponse(file_path)

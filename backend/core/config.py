@@ -5,7 +5,7 @@ class Settings(BaseSettings):
     PROJECT_NAME: str = "AI Hiring System"
     SUPABASE_URL: str = ""
     SUPABASE_KEY: str = ""
-    JWT_SECRET: str = "supersecretjwtkey123"
+    JWT_SECRET: str = ""
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
     GEMINI_API_KEY: str = ""

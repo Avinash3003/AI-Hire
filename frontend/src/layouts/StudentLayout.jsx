@@ -49,10 +49,12 @@ const StudentLayout = () => {
                         <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">{pendingCount}</span>
                     )}
                  </Link>
+                 <Link to="/profile" className="text-sm font-semibold text-slate-600 hover:text-blue-600 transition-colors">Profile</Link>
+                 
                  <div className="h-6 w-px bg-slate-200"></div>
                  <div className="flex items-center gap-3">
                     <span className="font-semibold text-sm text-slate-800">{user.name}</span>
-                    <button onClick={handleLogout} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors rounded-lg"><LogOut size={18}/></button>
+                    <button onClick={handleLogout} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors rounded-lg" title="Logout"><LogOut size={18}/></button>
                  </div>
                </>
             ) : (

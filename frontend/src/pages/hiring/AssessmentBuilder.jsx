@@ -205,12 +205,12 @@ const AssessmentBuilder = () => {
     const interviewCount = job?.config_json?.rounds?.interview?.enabled ? job?.config_json?.rounds?.interview?.questions : 0;
     const codingCount = job?.config_json?.rounds?.coding?.enabled ? job?.config_json?.rounds?.coding?.questions : 0;
 
-    if (selectedCoding.length !== codingCount) {
-        toast.error(`Please select exactly ${codingCount} coding question(s).`);
+    if (selectedCoding.length < codingCount) {
+        toast.error(`Please select AT LEAST ${codingCount} coding question(s) to form a pool.`);
         return;
     }
-    if (selectedInterview.length !== interviewCount) {
-        toast.error(`Please select exactly ${interviewCount} interview question(s).`);
+    if (selectedInterview.length < interviewCount) {
+        toast.error(`Please select AT LEAST ${interviewCount} interview question(s) to form a pool.`);
         return;
     }
 
@@ -261,10 +261,6 @@ const AssessmentBuilder = () => {
       setter(prev => {
           const exists = prev.find(item => (isCoding ? item.title === qKey : item.question === qKey));
           if (exists) return prev.filter(item => (isCoding ? item.title !== qKey : item.question !== qKey));
-          if (prev.length >= max) {
-              toast.error(`Limit reached for this round (${max} Qs).`);
-              return prev;
-          }
           return [...prev, q];
       });
   };
@@ -294,12 +290,12 @@ const AssessmentBuilder = () => {
                     <Lock size={20}/> Assessment Locked
                 </div>
             ) : !isConfirmed ? (
-                <button onClick={handleConfirm} disabled={saving || loading || selectedCoding.length !== (job?.config_json?.rounds?.coding?.enabled ? job?.config_json?.rounds?.coding?.questions : 0) || selectedInterview.length !== (job?.config_json?.rounds?.interview?.enabled ? job?.config_json?.rounds?.interview?.questions : 0)} className="px-8 py-2.5 bg-blue-600 hover:bg-blue-500 rounded-2xl font-extrabold shadow-lg shadow-blue-900/30 transition-all flex items-center gap-2 group active:scale-95 disabled:opacity-50">
-                    {saving ? 'Confirming...' : <><CheckCircle size={20}/> Confirm Selection</>}
+                <button onClick={handleConfirm} disabled={saving || loading || selectedCoding.length < (job?.config_json?.rounds?.coding?.enabled ? job?.config_json?.rounds?.coding?.questions : 0) || selectedInterview.length < (job?.config_json?.rounds?.interview?.enabled ? job?.config_json?.rounds?.interview?.questions : 0)} className="px-8 py-2.5 bg-blue-600 hover:bg-blue-500 rounded-2xl font-extrabold shadow-lg shadow-blue-900/30 transition-all flex items-center gap-2 group active:scale-95 disabled:opacity-50">
+                    {saving ? 'Confirming...' : <><CheckCircle size={20}/> Confirm Pool Selection</>}
                 </button>
             ) : (
                 <button onClick={handleLock} disabled={saving || loading} className="px-8 py-2.5 bg-green-600 hover:bg-green-500 rounded-2xl font-extrabold shadow-lg shadow-green-900/30 transition-all flex items-center gap-2 group active:scale-95 disabled:opacity-50">
-                   {saving ? 'Locking...' : <><Lock size={20}/> Lock & Deploy Assessment</>}
+                   {saving ? 'Deploying...' : <><Lock size={20}/> Deploy Assessment Pool</>}
                 </button>
             )}
         </div>
@@ -366,8 +362,8 @@ const AssessmentBuilder = () => {
                     </div>
                   </div>
                   {config.coding.enabled && (
-                    <div className={`px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest ${selectedCoding.length === config.coding.questions ? 'bg-green-500/20 text-green-400' : 'bg-white/5 text-gray-600'}`}>
-                        {selectedCoding.length} / {config.coding.questions} Selected
+                    <div className="px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest bg-blue-500/20 text-blue-400">
+                        Pool Size: {selectedCoding.length} (Assigns {config.coding.questions} per candidate)
                     </div>
                   )}
               </div>
@@ -438,8 +434,8 @@ const AssessmentBuilder = () => {
                     </div>
                   </div>
                   {config.interview.enabled && (
-                    <div className={`px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest ${selectedInterview.length === config.interview.questions ? 'bg-green-500/20 text-green-400' : 'bg-white/5 text-gray-600'}`}>
-                        {selectedInterview.length} / {config.interview.questions} Selected
+                    <div className="px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest bg-green-500/20 text-green-400">
+                        Pool Size: {selectedInterview.length} (Assigns {config.interview.questions} per candidate)
                     </div>
                   )}
               </div>

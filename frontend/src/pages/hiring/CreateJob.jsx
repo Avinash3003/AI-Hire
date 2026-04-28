@@ -30,7 +30,7 @@ const CreateJob = () => {
       nice_to_have_skills: [],
       rounds: {
         resume: { threshold: 75 },
-        interview: { enabled: true, questions: 3, difficulty: 'Medium', think_time: 30, answer_time: 120 },
+        interview: { enabled: true, questions: 3, difficulty: 'Medium', think_time: 30, answer_time: 120, edit_time: 30 },
         coding: { enabled: true, questions: 2, difficulty: 'Medium', total_time: 60, topics: [] },
         proctoring: { warning_limit: 3, scan_interval: 10 }
       }
@@ -182,11 +182,12 @@ const CreateJob = () => {
               </div>
 
               {formData.config_json.rounds.interview.enabled && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                   <Input type="number" label="Q Count" value={formData.config_json.rounds.interview.questions} onChange={e => setRound('interview', 'questions', parseInt(e.target.value))}/>
                   <Select label="Difficulty" value={formData.config_json.rounds.interview.difficulty} onChange={e => setRound('interview', 'difficulty', e.target.value)} options={[{value:'Easy',label:'Easy'},{value:'Medium',label:'Medium'},{value:'Hard',label:'Hard'}]}/>
                   <Input type="number" label="Think Time (s)" value={formData.config_json.rounds.interview.think_time} onChange={e => setRound('interview', 'think_time', parseInt(e.target.value))}/>
                   <Input type="number" label="Answer Time (s)" value={formData.config_json.rounds.interview.answer_time} onChange={e => setRound('interview', 'answer_time', parseInt(e.target.value))}/>
+                  <Input type="number" label="Edit Time (s)" value={formData.config_json.rounds.interview.edit_time ?? 30} onChange={e => setRound('interview', 'edit_time', parseInt(e.target.value))}/>
                 </div>
               )}
             </div>
