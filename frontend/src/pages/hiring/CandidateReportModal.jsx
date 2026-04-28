@@ -343,34 +343,54 @@ const CandidateReportModal = ({ appId, onClose }) => {
                   {report.interview_results.length === 0 ? (
                     <div className="py-6 text-center text-sm text-gray-400 italic">No interview responses recorded.</div>
                   ) : (
-                    <div className="space-y-3 mt-3">
+                    <div className="space-y-4 mt-3">
                       {report.interview_results.map((ir, i) => {
                         const comScore  = ir.communication_score >= 0 ? ir.communication_score : null;
                         const techScore = ir.technical_score >= 0 ? ir.technical_score : null;
+                        const questionText = ir.interview_questions?.question;
                         return (
-                          <div key={ir.id} className="rounded-xl border border-gray-100 p-3 bg-gray-50/50">
-                            <p className="text-sm font-bold text-gray-800 leading-relaxed mb-2">
-                              Q{i + 1}: {ir.interview_questions?.question || `Question ${i + 1} Response`}
-                            </p>
-                            {ir.transcript && (
-                              <div className="bg-white rounded-lg border border-gray-100 p-3 mb-2 shadow-sm">
-                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">Candidate Answer</p>
-                                <p className="text-sm text-gray-700 leading-relaxed">{ir.transcript}</p>
-                              </div>
-                            )}
-                            <div className="flex gap-2">
+                          <div key={ir.id} className="rounded-2xl border border-purple-100 overflow-hidden shadow-sm">
+                            {/* ── Question Header ── */}
+                            <div className="bg-gradient-to-r from-purple-50 to-indigo-50 border-b border-purple-100 px-4 py-3 flex items-start gap-3">
+                              <span className="shrink-0 w-6 h-6 rounded-lg bg-purple-600 text-white text-[10px] font-black flex items-center justify-center mt-0.5">
+                                Q{i + 1}
+                              </span>
+                              <p className="text-sm font-extrabold text-purple-900 leading-snug tracking-tight">
+                                {questionText || `Interview Question ${i + 1}`}
+                              </p>
+                            </div>
+
+                            {/* ── Candidate Answer ── */}
+                            <div className="bg-white px-4 py-3">
+                              {ir.transcript ? (
+                                <>
+                                  <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 flex items-center gap-1">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-green-400 inline-block"/>
+                                    Candidate Answer
+                                  </p>
+                                  <p className="text-sm text-gray-700 leading-relaxed">
+                                    {ir.transcript}
+                                  </p>
+                                </>
+                              ) : (
+                                <p className="text-xs text-gray-400 italic py-1">No answer recorded.</p>
+                              )}
+                            </div>
+
+                            {/* ── Score Chips ── */}
+                            <div className="bg-gray-50 border-t border-gray-100 px-4 py-2 flex gap-2">
                               {comScore !== null ? (
-                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-100">
-                                  Comm: {comScore}%
+                                <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-200">
+                                  💬 Comm: {comScore}%
                                 </span>
                               ) : (
-                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 border border-gray-200">
-                                  Pending LLM Review
+                                <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-600 border border-amber-200 animate-pulse">
+                                  ⏳ Pending LLM Review
                                 </span>
                               )}
                               {techScore !== null && (
-                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-violet-50 text-violet-600 border border-violet-100">
-                                  Tech: {techScore}%
+                                <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-violet-50 text-violet-600 border border-violet-200">
+                                  🧠 Tech: {techScore}%
                                 </span>
                               )}
                             </div>

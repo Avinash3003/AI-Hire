@@ -411,9 +411,9 @@ def get_candidate_report(
         if isinstance(raw_job, list):
             raw_job = raw_job[0] if raw_job else {}
 
-        # 2. Assessment link
+        # 2. Assessment link — include job_id + token so we can replay the random seed
         link_res = supabase.table("assessment_links").select(
-            "id, status, proctoring_log, created_at"
+            "id, status, proctoring_log, created_at, job_id, token"
         ).eq("application_id", app_id).execute()
         link = link_res.data[0] if link_res.data else None
 
@@ -458,6 +458,46 @@ def get_candidate_report(
                 print(f"interview_results fetch warning: {e}")
                 ir_res = supabase.table("interview_results").select("*").eq("assessment_link_id", link["id"]).execute()
                 interview_results = ir_res.data or []
+
+        # ── Enrichment pass: attach question text even when the join returned null ──
+        # Phase 1: match by question_id  (new submissions — FK join worked).
+        # Phase 2: replay the EXACT same random.seed used in verify_assessment so we
+        #          reconstruct the order questions were shown to this specific candidate.
+        #          This fixes ALL old exams without requiring a new attempt.
+        if interview_results and link and link.get("job_id"):
+            try:
+                import random as _rnd
+
+                # Fetch ALL questions for this job (same pool the exam pulled from)
+                iq_res = supabase.table("interview_questions") \
+                    .select("id, question") \
+                    .eq("job_id", link["job_id"]) \
+                    .execute()
+                iq_list = iq_res.data or []                   # full pool
+                iq_map  = {q["id"]: q for q in iq_list}      # lookup by id
+
+                # Phase 1 — id-based match (preferred, works when question_id is saved)
+                needs_order_match = []
+                for r in interview_results:
+                    if not r.get("interview_questions") or not r["interview_questions"].get("question"):
+                        q_id = r.get("question_id")
+                        if q_id and q_id in iq_map:
+                            r["interview_questions"] = iq_map[q_id]
+                        else:
+                            needs_order_match.append(r)
+
+                # Phase 2 — replay the exam's exact random order using the candidate's token
+                # This mirrors verify_assessment: random.seed(token + "_ai_interview")
+                if needs_order_match and iq_list and link.get("token"):
+                    _rnd.seed(link["token"] + "_ai_interview")
+                    sample_size = min(len(interview_results), len(iq_list))
+                    ordered_qs  = _rnd.sample(iq_list, sample_size)
+                    for idx, r in enumerate(needs_order_match):
+                        if idx < len(ordered_qs):
+                            r["interview_questions"] = ordered_qs[idx]
+
+            except Exception as e:
+                print(f"interview_questions enrichment warning: {e}")
 
         # 5. Aggregate scores
         resume_score  = int(app.get("ai_score") or 0)
